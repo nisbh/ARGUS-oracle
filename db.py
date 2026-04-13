@@ -1,0 +1,49 @@
+import sqlite3
+from typing import Optional
+
+
+def init_db(db_path: str) -> sqlite3.Connection:
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS dns_logs (
+          id        INTEGER PRIMARY KEY AUTOINCREMENT,
+          device_id INTEGER,
+          domain    TEXT,
+          timestamp TEXT,
+          flagged   INTEGER DEFAULT 0
+        )
+        """
+    )
+    conn.commit()
+    return conn
+
+
+def get_device_id(conn: sqlite3.Connection, ip: str) -> Optional[int]:
+    # Assumption: the devices table is pre-created and maintained by recon.
+    cursor = conn.cursor()
+    cursor.execute("SELECT id FROM devices WHERE ip = ?", (ip,))
+    row = cursor.fetchone()
+    return row[0] if row else None
+
+
+def log_dns_entry(
+    conn: sqlite3.Connection,
+    device_id: Optional[int],
+    domain: str,
+    timestamp: str,
+    flagged: int,
+) -> None:
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO dns_logs (device_id, domain, timestamp, flagged)
+            VALUES (?, ?, ?, ?)
+            """,
+            (device_id, domain, timestamp, flagged),
+        )
+        conn.commit()
+    except sqlite3.Error as exc:
+        print(f"SQLite error while logging DNS entry: {exc}")
