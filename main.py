@@ -1,6 +1,6 @@
 import os
 import sys
-from datetime import datetime
+import datetime
 
 from config import load_config
 from db import init_db
@@ -8,7 +8,7 @@ from flagging import load_blocklist, make_is_flagged
 from sniffer import start_sniff
 
 
-def print_summary(conn, start_time: datetime) -> None:
+def print_summary(conn, start_time: datetime.datetime) -> None:
     # Assumption: dns_logs timestamps are UTC strings in sortable YYYY-MM-DD HH:MM:SS format.
     start_time_iso = start_time.strftime("%Y-%m-%d %H:%M:%S")
     cursor = conn.cursor()
@@ -31,7 +31,7 @@ def print_summary(conn, start_time: datetime) -> None:
     )
     unique_domains = cursor.fetchone()[0] or 0
 
-    duration = datetime.utcnow() - start_time
+    duration = datetime.datetime.now(datetime.UTC) - start_time
 
     print("=" * 48)
     print("Session Summary")
@@ -58,7 +58,7 @@ def main() -> None:
     print(f"Blocklist : {len(blocklist)} entries loaded")
     print("=" * 48)
     print("Sniffing DNS traffic... (Ctrl+C to stop)")
-    start_time = datetime.utcnow()
+    start_time = datetime.datetime.now(datetime.UTC)
 
     try:
         start_sniff(conn, is_flagged_fn)
