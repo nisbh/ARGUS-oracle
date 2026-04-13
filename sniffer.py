@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Callable
 
 from scapy.all import DNS, DNSQR, IP, sniff
@@ -7,6 +7,8 @@ from scapy.layers.inet6 import IPv6
 from config import load_config
 from db import log_dns_entry
 from resolver import resolve_device_id
+
+_recent_queries: dict[tuple[str, str], datetime] = {}
 
 
 def start_sniff(conn, is_flagged_fn: Callable[[str], bool]) -> None:
@@ -36,7 +38,15 @@ def start_sniff(conn, is_flagged_fn: Callable[[str], bool]) -> None:
             domain = str(qname_value)
         domain = domain.rstrip(".")
 
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        # Assumption: deduplication is in-memory per process and resets on restart.
+        now_utc = datetime.utcnow()
+        dedup_key = (src_ip, domain)
+        last_seen = _recent_queries.get(dedup_key)
+        if last_seen is not None and (now_utc - last_seen) < timedelta(seconds=30):
+            return
+        _recent_queries[dedup_key] = now_utc
+
+        timestamp = now_utc.strftime("%Y-%m-%d %H:%M:%S")
         device_id = resolve_device_id(conn, src_ip)
         flagged = 1 if bool(is_flagged_fn(domain)) else 0
 
