@@ -11,6 +11,15 @@ def load_blocklist(blocklist_path: str) -> list[str]:
                 if not line or line.startswith("#"):
                     continue
                 entries.append(line.lower())
+
+            for entry in entries:
+                if len(entry) < 6:
+                    print(
+                        "[BLOCKLIST] Warning: entry "
+                        f"'{entry}' is very short and may cause false positives "
+                        "- consider making it more specific"
+                    )
+
             return entries
     except FileNotFoundError:
         print(f"[FLAGGING] Warning: blocklist not found at {blocklist_path}. Running without flagging.")
