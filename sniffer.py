@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Callable
 
 from scapy.all import DNS, DNSQR, IP, sniff
+from scapy.layers.inet6 import IPv6
 
 from config import load_config
 from db import log_dns_entry
@@ -20,11 +21,13 @@ def start_sniff(conn, is_flagged_fn: Callable[[str], bool]) -> None:
         if packet[DNS].qr != 0:
             return
 
-        # Assumption: this module only tracks IPv4 source addresses via the IP layer.
-        if not packet.haslayer(IP):
+        # Assumption: DNS traffic may arrive over IPv4 or IPv6 (for example via VPN).
+        if packet.haslayer(IP):
+            src_ip = packet[IP].src
+        elif packet.haslayer(IPv6):
+            src_ip = packet[IPv6].src
+        else:
             return
-
-        src_ip = packet[IP].src
 
         qname_value = packet[DNSQR].qname
         if isinstance(qname_value, bytes):
@@ -48,7 +51,7 @@ def start_sniff(conn, is_flagged_fn: Callable[[str], bool]) -> None:
     try:
         sniff(
             iface=interface,
-            filter="udp port 53",
+            filter="udp port 53 or (ip6 and udp port 53)",
             store=False,
             prn=handle_packet,
         )
