@@ -1,3 +1,4 @@
+import socket
 from datetime import datetime, timedelta
 from typing import Callable
 
@@ -5,7 +6,7 @@ from scapy.all import DNS, DNSQR, IP, sniff
 from scapy.layers.inet6 import IPv6
 
 from config import load_config
-from db import log_dns_entry
+from db import log_dns_entry, update_device_hostname
 from resolver import resolve_device_id
 
 _recent_queries: dict[tuple[str, str], datetime] = {}
@@ -16,6 +17,7 @@ def start_sniff(conn, is_flagged_fn: Callable[[str], bool]) -> None:
     # Assumption: load_config centralizes validation and always provides a usable interface.
     config = load_config()
     interface = config["interface"]
+    db_path = config["db_path"]
 
     def handle_packet(packet) -> None:
         if not packet.haslayer(DNS) or not packet.haslayer(DNSQR):
@@ -48,6 +50,15 @@ def start_sniff(conn, is_flagged_fn: Callable[[str], bool]) -> None:
         _recent_queries[dedup_key] = now_utc
 
         timestamp = now_utc.strftime("%Y-%m-%d %H:%M:%S")
+
+        try:
+            socket.setdefaulttimeout(1)
+            hostname = socket.gethostbyaddr(src_ip)[0]
+            if hostname:
+                update_device_hostname(db_path, src_ip, hostname)
+        except (socket.herror, socket.gaierror):
+            pass
+
         device_id = resolve_device_id(conn, src_ip)
         flagged = 1 if bool(is_flagged_fn(domain)) else 0
 

@@ -28,6 +28,29 @@ def get_device_id(conn: sqlite3.Connection, ip: str) -> Optional[int]:
     return row[0] if row else None
 
 
+def update_device_hostname(db_path: str, ip: str, hostname: str) -> None:
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                UPDATE devices
+                SET hostname = ?
+                WHERE ip = ?
+                  AND (hostname IS NULL OR hostname = '')
+                """,
+                (hostname, ip),
+            )
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        pass
+
+
 def log_dns_entry(
     conn: sqlite3.Connection,
     device_id: Optional[int],
