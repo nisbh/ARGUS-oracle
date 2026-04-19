@@ -9,6 +9,7 @@ from db import log_dns_entry
 from resolver import resolve_device_id
 
 _recent_queries: dict[tuple[str, str], datetime] = {}
+seen_devices: set[str] = set()
 
 
 def start_sniff(conn, is_flagged_fn: Callable[[str], bool]) -> None:
@@ -51,6 +52,10 @@ def start_sniff(conn, is_flagged_fn: Callable[[str], bool]) -> None:
         flagged = 1 if bool(is_flagged_fn(domain)) else 0
 
         log_dns_entry(conn, device_id, domain, timestamp, flagged)
+
+        if src_ip not in seen_devices:
+            seen_devices.add(src_ip)
+            print(f"--- New device: {src_ip} ---")
 
         status = "[FLAGGED]" if flagged else "[CLEAN]"
         display_time = timestamp.split(" ")[1]

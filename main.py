@@ -1,10 +1,12 @@
 import os
 import sys
 import datetime
+import threading
 
 from config import load_config
-from db import init_db
+from db import init_db, init_sni_table
 from flagging import load_blocklist, make_is_flagged
+from sni_sniffer import start_sni_sniff
 from sniffer import start_sniff
 
 
@@ -44,7 +46,9 @@ def print_summary(conn, start_time: datetime.datetime) -> None:
 
 def main() -> None:
     config = load_config()
-    conn = init_db(config["db_path"])
+    db_path = config["db_path"]
+    conn = init_db(db_path)
+    init_sni_table(db_path)
 
     # Assumption: blocklist.txt is colocated with main.py in repo root.
     blocklist_path = os.path.join(os.path.dirname(__file__), "blocklist.txt")
@@ -58,6 +62,10 @@ def main() -> None:
     print(f"Blocklist : {len(blocklist)} entries loaded")
     print("=" * 48)
     print("Sniffing DNS traffic... (Ctrl+C to stop)")
+
+    sni_thread = threading.Thread(target=start_sni_sniff, args=(db_path,), daemon=True)
+    sni_thread.start()
+
     start_time = datetime.datetime.now(datetime.UTC)
 
     try:
