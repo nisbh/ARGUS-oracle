@@ -10,7 +10,7 @@ connect.facebook.net
 scorecardresearch.com
 analytics.yahoo.com
 .ru
-c2
+
 payload
 botnet
 beacon

@@ -11,15 +11,6 @@ def load_blocklist(blocklist_path: str) -> list[str]:
                 if not line or line.startswith("#"):
                     continue
                 entries.append(line.lower())
-
-            for entry in entries:
-                if len(entry) < 6:
-                    print(
-                        "[BLOCKLIST] Warning: entry "
-                        f"'{entry}' is very short and may cause false positives "
-                        "- consider making it more specific"
-                    )
-
             return entries
     except FileNotFoundError:
         print(f"[FLAGGING] Warning: blocklist not found at {blocklist_path}. Running without flagging.")
@@ -27,11 +18,34 @@ def load_blocklist(blocklist_path: str) -> list[str]:
 
 
 def make_is_flagged(blocklist: list[str]) -> Callable[[str], bool]:
+    """Build a domain matcher with ordered checks.
+
+    Matching hierarchy (first hit wins):
+    1. Exact match: domain == entry
+    2. Suffix match: domain ends with "." + entry
+    3. Subdomain match for dotted-leading entries: domain ends with entry
+    4. Substring match only for entries containing at least one dot
+    """
+
     def is_flagged(domain: str) -> bool:
         if not blocklist:
             return False
 
         domain_lower = (domain or "").lower()
-        return any(entry in domain_lower for entry in blocklist)
+
+        for entry in blocklist:
+            if domain_lower == entry:
+                return True
+
+            if domain_lower.endswith("." + entry):
+                return True
+
+            if entry.startswith(".") and domain_lower.endswith(entry):
+                return True
+
+            if "." in entry and entry in domain_lower:
+                return True
+
+        return False
 
     return is_flagged
